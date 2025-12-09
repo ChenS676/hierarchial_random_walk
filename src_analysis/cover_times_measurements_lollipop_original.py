@@ -6,6 +6,9 @@ from recurrent_random_walk import run_tests_torch
 import graph_walker  # pylint: disable=import-error
 import json
 import fire
+import pandas as pd
+import matplotlib.pyplot as plt
+
 
 
 class RandomWalkConfig:
@@ -81,7 +84,6 @@ def compute_cover_times(G, walks, restarts):
             visited[j] = True
             if np.all(visited):
                 cover_times[walk_idx] = t + 1
-                print(cover_times)
                 break
     assert np.all(cover_times != -1), "All walks must cover all edges"
     # compute average per start node
@@ -175,15 +177,17 @@ def get_labels(G, start_nodes, cover_times):
 def run_all_tests(G, name, n_seeds=5):
     print(f"Running tests on {name}")
     results = {}
+    results["graph"] = name
+    
     # recurrent random walks
     for seed in range(n_seeds):
         config = RandomWalkConfig(
-            n_walks=2,            # number of walks per source
-            walk_len=2000,        # walk length
+            n_walks=20,            # number of walks per source
+            walk_len=1000,        # walk length
             seed=seed * 100,
         )
         config.use_torch = True          # activate torch backend
-        config.recurrent_steps = 2       # depth of recurrent expansion
+        config.recurrent_steps = 3       # depth of recurrent expansion
         seconds, cover_time, undirected_edge_cover_time = run_tests_torch(G, config)
         print(
             f"recurrent random walk (seed={seed}): {seconds:.2f} sec, "
@@ -194,15 +198,15 @@ def run_all_tests(G, name, n_seeds=5):
     print("recurrent random walks done\n")
 
     
-    # # unbiased random walks
-    # for seed in range(n_seeds):
-    #     config = RandomWalkConfig(seed=seed * 100)
-    #     seconds, cover_time, undirected_edge_cover_time = run_tests(G, config)
-    #     print(f"Unbiased (seed={seed}): {seconds} sec, cover time= {cover_time}, undirected edge cover time= {undirected_edge_cover_time}")
-    #     results['unbiased_'] = (seconds, cover_time, undirected_edge_cover_time)
-    # print("Unbiased done\n")
+    # unbiased random walks
+    for seed in range(n_seeds):
+        config = RandomWalkConfig(seed=seed * 100)
+        seconds, cover_time, undirected_edge_cover_time = run_tests(G, config)
+        print(f"Unbiased (seed={seed}): {seconds} sec, cover time= {cover_time}, undirected edge cover time= {undirected_edge_cover_time}")
+        results['unbiased_'] = (seconds, cover_time, undirected_edge_cover_time)
+    print("Unbiased done\n")
 
-    # # unbiased random walks with no backtracking
+    # unbiased random walks with no backtracking
     # for seed in range(n_seeds):
     #     config = RandomWalkConfig(no_backtrack=True, seed=seed * 100)
     #     seconds, cover_time, undirected_edge_cover_time = run_tests(G, config)
@@ -218,13 +222,13 @@ def run_all_tests(G, name, n_seeds=5):
         results['MDLR_'] = (seconds, cover_time, undirected_edge_cover_time)
     print("MDLR done\n")
 
-    # MDLR random walks with no backtracking
-    for seed in range(n_seeds):
-        config = RandomWalkConfig(min_degree=True, no_backtrack=True, seed=seed * 100)
-        seconds, cover_time, undirected_edge_cover_time = run_tests(G, config)
-        print(f"MDLR + no backtracking (seed={seed}): {seconds} sec, cover time= {cover_time}, undirected edge cover time= {undirected_edge_cover_time}")
-        results['MDLR_no_backtrack'] = (seconds, cover_time, undirected_edge_cover_time)
-    print("MDLR + no backtracking done\n")
+    # # MDLR random walks with no backtracking
+    # for seed in range(n_seeds):
+    #     config = RandomWalkConfig(min_degree=True, no_backtrack=True, seed=seed * 100)
+    #     seconds, cover_time, undirected_edge_cover_time = run_tests(G, config)
+    #     print(f"MDLR + no backtracking (seed={seed}): {seconds} sec, cover time= {cover_time}, undirected edge cover time= {undirected_edge_cover_time}")
+    #     results['MDLR_no_backtrack'] = (seconds, cover_time, undirected_edge_cover_time)
+    # print("MDLR + no backtracking done\n")
 
     # node2vec random walks
     for seed in range(n_seeds):
@@ -234,33 +238,41 @@ def run_all_tests(G, name, n_seeds=5):
         results['N2V'] = (seconds, cover_time, undirected_edge_cover_time)
     print("node2vec done\n")
 
-
-    import pandas as pd
     df = pd.DataFrame(results, index=["seconds", "vertex_cover_time", "edge_cover_time"]).T
     df.index.name = name
-    df.to_csv("cover_time_results.csv")
 
     df.to_csv(
-        "cover_time_results.csv",
+        f"cover_time_results_{name}.csv",
         mode="a",             # append # only write header once
         index=True
     )
-    print("saved → cover_time_results.csv")
-
+    print(f"saved → cover_time_results_{name}.csv")
+    print(df)
     import pdb; pdb.set_trace()
     return results
 
     
 
-def main(N=3):
-    # lollipop
-    clique = nx.complete_graph(2 * N)
-    chain = nx.path_graph(N)
-    G = nx.disjoint_union(clique, chain)
-    G.add_edge(2 * N - 1, 2 * N)
-    G = nx.to_undirected(G)
+def main(N=5):
+    from hierarchial import (build_tree_graph, 
+                             build_bottleneck_sbm, 
+                             quick_plot)
+    # G = build_tree_graph(branching_factor=2, levels=2)
+    G = build_bottleneck_sbm(n1=3, n2=5, p_intra1=0.8, p_intra2=0.8, p_inter=0.06)
+
+    print("Clique chain:", G.number_of_nodes(), G.number_of_edges())
+    quick_plot(G, "Hierarchical clique chain", "clique_chain.pdf")
     
-    results = run_all_tests(G, f"lollipop_(n={G.number_of_nodes()},m={G.number_of_edges()})", n_seeds=1)
+    nx.draw(
+        G,
+        with_labels=False,
+        node_size=5,
+        node_color="lightgreen",
+        edge_color="gray",
+    )
+    plt.title(f"Tree Graph (n={G.number_of_nodes()}, m={G.number_of_edges()})")
+    plt.savefig("tree_graph.pdf", format="pdf", bbox_inches="tight")
+    run_all_tests(G, f"sbm_(n={G.number_of_nodes()},m={G.number_of_edges()})", n_seeds=1)
 
 
 if __name__ == '__main__':

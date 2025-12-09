@@ -102,6 +102,87 @@ def get_recurrent_walks_for_cover(
     return walks_np, restarts_np
 
 
+
+def _sample_neighbor(indices, weights, rng):
+    """
+    Sample an index into `indices` with unnormalized weights `weights`.
+    Returns indices[pos].
+    """
+    weight_sum = weights.sum()
+    if weight_sum <= 0:
+        # all weights zero, fall back to uniform
+        return rng.choice(indices)
+
+    draw = rng.random() * weight_sum
+    cumsum = 0.0
+    for idx, w in zip(indices, weights):
+        cumsum += w
+        if draw <= cumsum:
+            return idx
+    # numerical fall-back
+    return indices[-1]
+
+
+
+def random_walks_no_backtrack(indptr, indices, data, start_nodes, seed, n_walks, walk_len):
+    """
+    Python/Numpy version of C++ randomWalksNoBacktrack.
+    Same as random_walks, but avoids immediately going back to the previous node.
+    """
+    indptr = np.asarray(indptr, dtype=np.uint32)
+    indices = np.asarray(indices, dtype=np.uint32)
+    data = np.asarray(data, dtype=float)
+    start_nodes = np.asarray(start_nodes, dtype=np.uint32)
+
+    n_nodes = start_nodes.shape[0]
+    shape = n_walks * n_nodes
+
+    walks = np.empty((shape, walk_len), dtype=np.uint32)
+
+    for i in range(shape):
+        rng = np.random.default_rng(seed + i)
+        draws = rng.random(walk_len - 1)
+
+        step = int(start_nodes[i % n_nodes])
+        walks[i, 0] = step
+
+        for k in range(1, walk_len):
+            start = indptr[step]
+            end = indptr[step + 1]
+
+            # no neighbors → stay
+            if start == end:
+                walks[i, k] = step
+                continue
+
+            neigh_idx = indices[start:end]
+            weights = data[start:end].copy()
+
+            if k >= 2:
+                prev = int(walks[i, k - 2])
+
+                # set weight to 0 for prev node
+                for z in range(start, end):
+                    if indices[z] == prev:
+                        weights[z - start] = 0.0
+
+            next_step = _sample_neighbor(neigh_idx, weights, rng)
+            step = int(next_step)
+            walks[i, k] = step
+
+    return walks
+
+
+import numpy as np
+import torch
+from torch_sparse import SparseTensor
+import scipy.sparse as sp
+
+# assumes _sample_neighbor + random_walks_no_backtrack are already defined
+# exactly as in your snippet
+
+
+
 def generate_walks_for_cover_time(
     adj: SparseTensor,
     num_nodes: int,

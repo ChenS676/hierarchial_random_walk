@@ -538,11 +538,3 @@ if __name__ == "__main__":
     )
     print(pivot)
 
-
-| Graph structure                     | RW cover time | HRW improvement   |
-| ----------------------------------- | ------------- | ----------------- |
-| **Lollipop**                        | (\Theta(n^3)) | → (\tilde O(n^2)) |
-| **Barbell** (clique–path–clique)    | (\Theta(n^3)) | → order reduction |
-| **Dumbbell** (cycle–bridge–cycle)   | (\Theta(n^3)) | → order reduction |
-| **Highly modular community graphs** | slow mixing   | faster crossing   |
-| **Hub–spoke / star-with-tail**      | hub trapping  | frontier helps    |
