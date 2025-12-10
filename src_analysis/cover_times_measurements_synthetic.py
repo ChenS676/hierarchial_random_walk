@@ -319,10 +319,12 @@ def run_all_tests(G, name, n_seeds=5):
 def main(N=5):
     from hierarchial import (build_tree_graph, 
                              build_bottleneck_sbm, 
+                             build_lollipop_graph,
                              quick_plot)
+
     G = build_tree_graph(branching_factor=3, levels=3)
     #  G = build_bottleneck_sbm(n1=3, n2=5, p_intra1=0.8, p_intra2=0.8, p_inter=0.06)
-
+    #  G = build_lollipop_graph(n_lollipops=N, lollipop_size=5)
     print("Clique chain:", G.number_of_nodes(), G.number_of_edges())
     quick_plot(G, "Hierarchical clique chain", "clique_chain.pdf")
     

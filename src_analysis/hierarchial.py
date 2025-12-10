@@ -57,7 +57,59 @@ def hierarchical_tree_connected(levels: int, cluster_size: int,
     return G
 
 
-import networkx as nx
+def build_tree_graph(branching_factor: int = 2, levels: int = 4) -> nx.Graph:
+    """
+    Build a balanced tree with given branching factor and depth.
+    Connectivity guaranteed.
+
+    Args:
+        branching_factor : number of children per node
+        levels           : depth of the tree 
+
+    Returns:
+        G : connected tree graph
+    """
+    G = nx.balanced_tree(r=branching_factor, h=levels)
+    assert nx.is_tree(G), "Graph must be a tree"
+    assert nx.is_connected(G), "Tree must be connected"
+    return G
+
+
+# ============================================================
+# 2. BOTTLENECK SBM (two dense blocks, sparse bridge) - force connected
+# ============================================================
+
+def build_bottleneck_sbm(n1: int = 50, n2: int = 50,
+                         p_intra1: float = 0.4,
+                         p_intra2: float = 0.4,
+                         p_inter: float = 0.01,
+                         seed: int = 0) -> nx.Graph:
+    """
+    Two-community SBM with sparse inter-community edges.
+    Connectivity is guaranteed by enforcing at least one bridge edge.
+    """
+    rng = np.random.default_rng(seed)
+    sizes = [n1, n2]
+    probs = [
+        [p_intra1,    p_inter],
+        [p_inter,     p_intra2],
+    ]
+    G = nx.stochastic_block_model(sizes, probs, seed=int(rng.integers(1_000_000)))
+
+    # ensure at least one inter-block edge
+    # block 0: nodes [0 .. n1-1], block 1: [n1 .. n1+n2-1]
+    u = 0
+    v = n1
+    if not G.has_edge(u, v):
+        G.add_edge(u, v)
+    G = G.subgraph(max(nx.connected_components(G), key=len)).copy()
+    G = nx.convert_node_labels_to_integers(
+    G.subgraph(max(nx.connected_components(G), key=len)).copy(),
+    first_label=0)
+    assert nx.is_connected(G)
+    return G
+
+
 
 def build_lollipop_graph(N: int, clique_factor: int = 2) -> nx.Graph:
     """
@@ -87,26 +139,6 @@ def build_lollipop_graph(N: int, clique_factor: int = 2) -> nx.Graph:
     G = nx.to_undirected(G)
     assert nx.is_connected(G), "Lollipop graph must be connected"
 
-    return G
-
-
-import networkx as nx
-
-def build_tree_graph(branching_factor: int = 2, levels: int = 4) -> nx.Graph:
-    """
-    Build a balanced tree with given branching factor and depth.
-    Connectivity guaranteed.
-
-    Args:
-        branching_factor : number of children per node
-        levels           : depth of the tree 
-
-    Returns:
-        G : connected tree graph
-    """
-    G = nx.balanced_tree(r=branching_factor, h=levels)
-    assert nx.is_tree(G), "Graph must be a tree"
-    assert nx.is_connected(G), "Tree must be connected"
     return G
 
 
@@ -156,40 +188,6 @@ def build_barbell_graph(clique_size: int = 20, bridge_len: int = 10) -> nx.Graph
     assert nx.is_connected(G)
     return G
 
-
-# ============================================================
-# 2. BOTTLENECK SBM (two dense blocks, sparse bridge) - force connected
-# ============================================================
-
-def build_bottleneck_sbm(n1: int = 50, n2: int = 50,
-                         p_intra1: float = 0.4,
-                         p_intra2: float = 0.4,
-                         p_inter: float = 0.01,
-                         seed: int = 0) -> nx.Graph:
-    """
-    Two-community SBM with sparse inter-community edges.
-    Connectivity is guaranteed by enforcing at least one bridge edge.
-    """
-    rng = np.random.default_rng(seed)
-    sizes = [n1, n2]
-    probs = [
-        [p_intra1,    p_inter],
-        [p_inter,     p_intra2],
-    ]
-    G = nx.stochastic_block_model(sizes, probs, seed=int(rng.integers(1_000_000)))
-
-    # ensure at least one inter-block edge
-    # block 0: nodes [0 .. n1-1], block 1: [n1 .. n1+n2-1]
-    u = 0
-    v = n1
-    if not G.has_edge(u, v):
-        G.add_edge(u, v)
-    G = G.subgraph(max(nx.connected_components(G), key=len)).copy()
-    G = nx.convert_node_labels_to_integers(
-    G.subgraph(max(nx.connected_components(G), key=len)).copy(),
-    first_label=0)
-    assert nx.is_connected(G)
-    return G
 
 
 # ============================================================
