@@ -16,19 +16,6 @@ from random_walks import anonymize_neighbors as _anonymize_neighbors
 
 from preprocessing import get_normalized_adjacency, get_normalized_minimum_degree
 
-# from random_walks import parse_directions as _parse_directions
-# from random_walks import parse_directions_neighbors as _parse_directions_neighbors
-
-# from random_walks import as_text as _as_text
-# from random_walks import as_text_neighbors as _as_text_neighbors
-# from random_walks import as_text_arxiv as _as_text_arxiv
-# from random_walks import as_text_neighbors_arxiv as _as_text_neighbors_arxiv
-# from random_walks import as_text_amazon as _as_text_amazon
-# from random_walks import as_text_neighbors_amazon as _as_text_neighbors_amazon
-# from random_walks import as_text_peptides as _as_text_peptides
-# from random_walks import as_text_neighbors_peptides as _as_text_neighbors_peptides
-
-
 def transition_probs(G, min_degree=False, sub_sampling=0.):
     assert not nx.is_directed(G), "Graph must be undirected"
     if min_degree:
