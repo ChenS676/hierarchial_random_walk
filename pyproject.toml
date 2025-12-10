@@ -1,22 +1,81 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "hierarchial-random-walk"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-requires-python = ">=3.9"
+description = "Project using torch 2.2.0 + cu118 and PyG CUDA wheels"
+requires-python = ">=3.11,<3.13"
+
+# All the packages from your original pip script
 dependencies = [
-    "easydict==1.10",
-    "fastapi==0.100.1",
-    "matplotlib==3.7.2",
     "numpy==1.26.4",
-    "plum-dispatch==2.1.1",
-    "pyg-lib==0.4.0+pt22cu118",
-    "scikit-learn==1.3.0",
-    "seaborn==0.12.2",
-    "torch-cluster==1.6.3+pt22cu118",
-    "torch-geometric==2.5.0",
-    "torch-scatter==2.1.2+pt22cu118",
-    "torch-sparse==0.6.18+pt22cu118",
-    "torch-spline-conv==1.2.2+pt22cu118",
+
+    # PyTorch CUDA 11.8
+    "torch==2.2.0+cu118",
+    "torchvision==0.17.0+cu118",
+    "torchaudio==2.2.0+cu118",
+
+
+    # utils / viz / ml
     "wandb==0.15.8",
+    "scikit-learn==1.3.0",
+    "matplotlib==3.7.2",
+    "seaborn==0.12.2",
+
+    # torch geometric
+    "torch_geometric==2.5.0",
+
+    # PyG CUDA wheels (pt22/cu118)
+    "torch_scatter==2.1.2+pt22cu118",
+    "torch_sparse==0.6.18+pt22cu118",
+    "torch_cluster==1.6.3+pt22cu118",
+    "torch_spline_conv==1.2.2+pt22cu118",
+    "networkx==3.2.1",
+    "fire==0.5.0"
 ]
+
+# ─────────────────────────────────────────────
+# uv index configuration (sources / repos)
+# ─────────────────────────────────────────────
+
+# Default PyPI (explicit but optional)
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+# PyTorch CUDA 11.8 wheels (Simple index)
+[[tool.uv.index]]
+name = "pytorch-cu118"
+url = "https://download.pytorch.org/whl/cu118"
+explicit = true
+
+# PyG CUDA wheels as a flat index (like pip -f)
+[[tool.uv.index]]
+name = "pyg-cu118"
+url = "https://data.pyg.org/whl/torch-2.2.0+cu118.html"
+format = "flat"
+explicit = true
+
+# Pin specific packages to their source indexes
+[tool.uv.sources]
+# PyTorch stack from PyTorch index
+torch = { index = "pytorch-cu118" }
+torchvision = { index = "pytorch-cu118" }
+torchaudio = { index = "pytorch-cu118" }
+
+# PyG CUDA wheels from the PyG flat index
+pyg_lib = { index = "pyg-cu118" }
+torch_scatter = { index = "pyg-cu118" }
+torch_sparse = { index = "pyg-cu118" }
+torch_cluster = { index = "pyg-cu118" }
+torch_spline_conv = { index = "pyg-cu118" }
+
+# ─────────────────────────────────────────────
+# Hatch: tell it *not* to auto-select files
+# ─────────────────────────────────────────────
+[tool.hatch.build.targets.wheel]
+bypass-selection = true
+
