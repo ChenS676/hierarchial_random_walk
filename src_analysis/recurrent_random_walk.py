@@ -1,7 +1,6 @@
 import os
 import sys 
 # add path to import graph_walker
-sys.path.append(os.path.abspath('/home/aifb/cc7738/random-walk/graph-walker/graph_walker'))
 import time
 import numpy as np
 import networkx as nx
@@ -9,11 +8,10 @@ import tqdm
 import random_walks as random_walks  # pylint: disable=import-error
 import torch
 import fire
-
-
 import networkx as nx
 import torch
 from torch_sparse import SparseTensor
+
 
 def nx_to_sparse_tensor(G, device=torch.device("cpu")) -> SparseTensor:
     """
@@ -103,86 +101,6 @@ def get_recurrent_walks_for_cover(
 
 
 
-def _sample_neighbor(indices, weights, rng):
-    """
-    Sample an index into `indices` with unnormalized weights `weights`.
-    Returns indices[pos].
-    """
-    weight_sum = weights.sum()
-    if weight_sum <= 0:
-        # all weights zero, fall back to uniform
-        return rng.choice(indices)
-
-    draw = rng.random() * weight_sum
-    cumsum = 0.0
-    for idx, w in zip(indices, weights):
-        cumsum += w
-        if draw <= cumsum:
-            return idx
-    # numerical fall-back
-    return indices[-1]
-
-
-
-def random_walks_no_backtrack(indptr, indices, data, start_nodes, seed, n_walks, walk_len):
-    """
-    Python/Numpy version of C++ randomWalksNoBacktrack.
-    Same as random_walks, but avoids immediately going back to the previous node.
-    """
-    indptr = np.asarray(indptr, dtype=np.uint32)
-    indices = np.asarray(indices, dtype=np.uint32)
-    data = np.asarray(data, dtype=float)
-    start_nodes = np.asarray(start_nodes, dtype=np.uint32)
-
-    n_nodes = start_nodes.shape[0]
-    shape = n_walks * n_nodes
-
-    walks = np.empty((shape, walk_len), dtype=np.uint32)
-
-    for i in range(shape):
-        rng = np.random.default_rng(seed + i)
-        draws = rng.random(walk_len - 1)
-
-        step = int(start_nodes[i % n_nodes])
-        walks[i, 0] = step
-
-        for k in range(1, walk_len):
-            start = indptr[step]
-            end = indptr[step + 1]
-
-            # no neighbors → stay
-            if start == end:
-                walks[i, k] = step
-                continue
-
-            neigh_idx = indices[start:end]
-            weights = data[start:end].copy()
-
-            if k >= 2:
-                prev = int(walks[i, k - 2])
-
-                # set weight to 0 for prev node
-                for z in range(start, end):
-                    if indices[z] == prev:
-                        weights[z - start] = 0.0
-
-            next_step = _sample_neighbor(neigh_idx, weights, rng)
-            step = int(next_step)
-            walks[i, k] = step
-
-    return walks
-
-
-import numpy as np
-import torch
-from torch_sparse import SparseTensor
-import scipy.sparse as sp
-
-# assumes _sample_neighbor + random_walks_no_backtrack are already defined
-# exactly as in your snippet
-
-
-
 def generate_walks_for_cover_time(
     adj: SparseTensor,
     num_nodes: int,
@@ -232,6 +150,7 @@ def generate_walks_for_cover_time(
     return walks_np, restarts_np
 
 
+
 def compute_random_walks_torch(G, config):
     """
     Torch_sparse-based replacement of graph_walker.random_walks
@@ -268,7 +187,6 @@ def compute_random_walks_torch(G, config):
 
 
 
-
 def compute_stationary_distribution(G, config):
     """Compute the stationary distribution of the random walk."""
     probs = random_walks.stationary_distribution(
@@ -277,6 +195,7 @@ def compute_stationary_distribution(G, config):
         sub_sampling=config.sub_sampling
     )
     return probs
+
 
 
 def compute_cover_times(G, walks, restarts):
@@ -306,6 +225,7 @@ def compute_cover_times(G, walks, restarts):
         cover_times_per_start_node[start_node] = np.mean(cover_times[idxs])
     assert np.all(cover_times_per_start_node != -1), "All nodes must be used as start nodes"
     return cover_times_per_start_node
+
 
 
 def compute_undirected_edge_cover_times(G, walks, restarts):
@@ -338,11 +258,13 @@ def compute_undirected_edge_cover_times(G, walks, restarts):
     return cover_times
 
 
+
 def compute_empirical_stationary_distribution(G, walks):
     """Compute the empirical long-term distribution of the random walk."""
     unique, counts = np.unique(walks, return_counts=True)
     assert np.all(unique == np.arange(len(G.nodes)))
     return counts / np.sum(counts)
+
 
 
 def compute_node_cover_times(
@@ -416,62 +338,5 @@ def compute_node_cover_times(
 
     return cover_times_per_start
 
-
-def run_tests_torch(
-    G,
-    config,
-    use_recurrent: bool = False,
-    recurrent_steps: int = None,
-):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    adj = nx_to_sparse_tensor(G, device=device)
-    n_nodes = G.number_of_nodes()
-
-    if config.seed is not None:
-        torch.manual_seed(config.seed)
-
-    # Decide recurrence depth
-    if recurrent_steps is None:
-        recurrent_steps = getattr(config, "recurrent_steps", 1)
-
-    # -------------------------------------------------------
-    # Generate walks
-    # -------------------------------------------------------
-    time_start = time.time()
-
-    if use_recurrent and recurrent_steps > 1:
-        # Recurrent (HeART-style) walks
-        start_nodes = torch.arange(n_nodes, device=device)
-        walks, restarts = get_recurrent_walks_for_cover(
-            adj=adj,
-            start_nodes=start_nodes,
-            walk_length=config.walk_len,
-            num_walks=config.n_walks,
-            steps=recurrent_steps,
-            flip=True,  # keep HeART convention
-        )
-    else:
-        # Simple unbiased walks: each node as start, n_walks per node
-        walks, restarts = generate_walks_for_cover_time(
-            adj=adj,
-            num_nodes=n_nodes,
-            walk_length=config.walk_len,
-            num_walks_per_node=config.n_walks,
-        )
-
-    time_end = time.time()
-    seconds = time_end - time_start
-
-    node_cover_times = compute_node_cover_times(G, walks, restarts)
-    cover_time = float(node_cover_times.max())
-
-    undirected_edge_cover_times = compute_undirected_edge_cover_times(G, walks, restarts)
-    undirected_edge_cover_time = int(undirected_edge_cover_times.max())
-
-    return (
-        seconds,
-        cover_time,
-        undirected_edge_cover_time,
-    )
 
 
