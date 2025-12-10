@@ -16,7 +16,10 @@ import scipy.sparse as sp
 from recurrent_random_walk import (nx_to_sparse_tensor, 
                                    get_recurrent_walks_for_cover,
                                    generate_walks_for_cover_time)
-
+from hierarchial import (build_tree_graph, 
+                            build_bottleneck_sbm, 
+                            build_lollipop_graph,
+                            quick_plot)
 class RandomWalkConfig:
     def __init__(
             self,
@@ -145,13 +148,6 @@ def run_tests(G, config):
     walks, restarts = compute_random_walks(G, config)
     time_end = time.time()
     seconds = time_end - time_start
-
-    # estimate stationary distribution
-    # if config.p == 1 and config.q == 1 and config.alpha == 0 and config.k is None and not config.no_backtrack:
-        # sample_probs = compute_empirical_stationary_distribution(G, walks)
-        # true_probs = compute_stationary_distribution(G, config)
-        # error = np.linalg.norm(sample_probs - true_probs)
-        # print(f"Stationary distribution error: {error:.2e}")
 
     # compute cover times
     cover_time = np.max(compute_cover_times(G, walks, restarts))
@@ -317,26 +313,12 @@ def run_all_tests(G, name, n_seeds=5):
     
 
 def main(N=5):
-    from hierarchial import (build_tree_graph, 
-                             build_bottleneck_sbm, 
-                             build_lollipop_graph,
-                             quick_plot)
-
-    G = build_tree_graph(branching_factor=3, levels=3)
+    G = build_tree_graph(branching_factor=2, levels=3)
     #  G = build_bottleneck_sbm(n1=3, n2=5, p_intra1=0.8, p_intra2=0.8, p_inter=0.06)
     #  G = build_lollipop_graph(n_lollipops=N, lollipop_size=5)
     print("Clique chain:", G.number_of_nodes(), G.number_of_edges())
     quick_plot(G, "Hierarchical clique chain", "clique_chain.pdf")
-    
-    nx.draw(
-        G,
-        with_labels=False,
-        node_size=5,
-        node_color="lightgreen",
-        edge_color="gray",
-    )
-    plt.title(f"Tree Graph (n={G.number_of_nodes()}, m={G.number_of_edges()})")
-    plt.savefig("tree_graph.pdf", format="pdf", bbox_inches="tight")
+
     run_all_tests(G, f"sbm_(n={G.number_of_nodes()},m={G.number_of_edges()})", n_seeds=1)
 
 
